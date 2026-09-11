@@ -1,0 +1,34 @@
+{
+  "seed": 42,
+  "truth": [
+    {
+      "paymentId": "PAY-1003",
+      "invoiceId": "INV-1003"
+    },
+    {
+      "paymentId": "PAY-1004",
+      "invoiceId": "INV-1004"
+    },
+    {
+      "paymentId": "PAY-1005",
+      "invoiceId": "INV-1004"
+    },
+    {
+      "paymentId": "PAY-1006",
+      "invoiceId": "INV-1005"
+    },
+    {
+      "paymentId": "PAY-1012",
+      "invoiceId": "INV-1011"
+    }
+  ],
+  "reviewPaymentIds": [
+    "PAY-1001",
+    "PAY-1007",
+    "PAY-1008",
+    "PAY-1009",
+    "PAY-1010",
+    "PAY-1011",
+    "PAY-1013"
+  ]
+}

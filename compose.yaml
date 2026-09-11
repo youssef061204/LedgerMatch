@@ -1,0 +1,43 @@
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: ledger
+      POSTGRES_PASSWORD: ledger_local_only
+      POSTGRES_DB: ledgermatch
+    ports: ["127.0.0.1:54329:5432"]
+    volumes: ["ledger-data:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ledger -d ledgermatch"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+  migrate:
+    build: .
+    image: ledgermatch:local
+    command: ["npx", "tsx", "scripts/migrate.ts"]
+    environment: &app-env
+      DATABASE_URL: postgresql://ledger:ledger_local_only@db:5432/ledgermatch
+      SESSION_PASSWORD: ${SESSION_PASSWORD:?Set SESSION_PASSWORD in .env}
+      APP_ORIGIN: ${APP_ORIGIN:-http://127.0.0.1:3000}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+    depends_on:
+      db: {condition: service_healthy}
+  app:
+    build: .
+    image: ledgermatch:local
+    command: ["npm", "start"]
+    ports: ["127.0.0.1:3000:3000"]
+    environment: *app-env
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+  worker:
+    build: .
+    image: ledgermatch:local
+    command: ["npx", "tsx", "src/worker.ts"]
+    environment: *app-env
+    restart: unless-stopped
+    depends_on:
+      migrate: {condition: service_completed_successfully}
+volumes:
+  ledger-data:

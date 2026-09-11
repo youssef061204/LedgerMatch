@@ -1,0 +1,10 @@
+import { mkdir,writeFile } from 'node:fs/promises';
+import { fixtureCsv } from '../src/server/service';
+const size=Number(process.argv[2]??240);
+if(!Number.isInteger(size)||size<12||size>100000) throw new Error('Choose 12–100000 records per file.');
+const {fixture,invoices,payments}=fixtureCsv(size);
+await mkdir('artifacts/datasets',{recursive:true});
+await writeFile(`artifacts/datasets/invoices-${size}.csv`,invoices);
+await writeFile(`artifacts/datasets/payments-${size}.csv`,payments);
+await writeFile(`artifacts/datasets/truth-${size}.json`,JSON.stringify({seed:42,truth:fixture.truth,reviewPaymentIds:fixture.reviewPaymentIds},null,2));
+console.log(`Wrote synthetic CSVs and independent truth under artifacts/datasets (${size} invoices / ${size} payments).`);

@@ -1,0 +1,49 @@
+{
+  "name": "ledgermatch",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "dev": "next dev --hostname 127.0.0.1",
+    "build": "next build",
+    "start": "next start --hostname 0.0.0.0",
+    "worker": "tsx --env-file=.env src/worker.ts",
+    "db:migrate": "tsx --env-file=.env scripts/migrate.ts",
+    "db:seed": "tsx --env-file=.env scripts/seed.ts",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run tests/unit",
+    "test:integration": "vitest run tests/integration",
+    "test:e2e": "playwright test",
+    "benchmark": "tsx --env-file=.env scripts/benchmark.ts",
+    "fixtures": "tsx --env-file=.env scripts/fixtures.ts"
+  },
+  "dependencies": {
+    "csv-parse": "^7.0.2",
+    "drizzle-orm": "^0.45.1",
+    "iron-session": "^8.0.4",
+    "lucide-react": "^0.577.0",
+    "next": "^16.1.6",
+    "pg": "^8.18.0",
+    "pg-boss": "^12.11.1",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "@types/node": "^24.10.0",
+    "@types/pg": "^8.16.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "dotenv": "^17.3.1",
+    "eslint": "^9.39.3",
+    "eslint-config-next": "^16.1.6",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
+  }
+}
