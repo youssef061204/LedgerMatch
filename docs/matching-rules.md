@@ -27,6 +27,8 @@ For example, `Paid: (inv-12), thank you` resolves to `INV-12`. `INV-123`, `PREFI
 
 ## Suggestions and statuses
 
+This section describes the unchanged default heuristic. The optional [ML ranking layer](ml-matching.md) uses the same bounded candidate generator with a cap of 20, then returns five ranked suggestions and separately calibrated top-choice confidence. Deterministic rule version 1.0.0 and all automatic allocation rules remain unchanged.
+
 Candidate scores are heuristic rankings, **not probabilities or calibrated confidence**. Candidates must have compatible currency, compatible supplied customer identity and enough outstanding balance. Score components are:
 
 | Evidence | Points |

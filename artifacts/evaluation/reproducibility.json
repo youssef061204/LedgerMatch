@@ -1,0 +1,10 @@
+{
+  "verifiedAt": "2026-09-13T19:24:10.192Z",
+  "seed": 20260913,
+  "modelId": "lm-3c2c1b5c2d58c1b2",
+  "datasetFilesByteIdentical": true,
+  "modelParametersByteIdentical": true,
+  "nativePredictionsByteIdentical": true,
+  "pythonTests": 5,
+  "scope": "Regenerated all input files; trained only on train and validation. No test-driven fitting."
+}

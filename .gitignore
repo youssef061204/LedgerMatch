@@ -7,4 +7,6 @@ test-results/
 playwright-report/
 artifacts/screenshots/
 .local/
+__pycache__/
+*.pyc
 !.env.example

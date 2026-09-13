@@ -1,5 +1,9 @@
 # Verification and portfolio handoff
 
+## ML extension, September 13, 2026
+
+Current measured results and generated resume claims are in [benchmark-results.md](benchmark-results.md) and [resume-metrics.md](resume-metrics.md). The interactive `/evaluation` page reads the generated experiment JSON. [ML documentation](ml-matching.md) includes exact data/training/evaluation/performance/test commands and limitations. Original observations below are historical and remain preserved; do not confuse deterministic fixture precision with predictive ML accuracy.
+
 Verified locally on September 11, 2026. No public deployment was provisioned; use the verified local preview at http://127.0.0.1:3000 and the deployment instructions for hosting.
 
 The complete Docker Compose deployment (production app, separate worker, PostgreSQL and migration task) was built and started successfully. All four browser tests passed against those containers in 14.5 seconds. The services are left running.
@@ -14,7 +18,7 @@ The complete Docker Compose deployment (production app, separate worker, Postgre
 
 ## PostgreSQL benchmarks
 
-Run `npm run benchmark -- 1000 10000 100000`. Raw results: [benchmark-results.json](../artifacts/benchmark-results.json). Each row below is the final recorded observation for that size, not a statistical estimate. Imports include both CSVs, parsing, row evidence, records and commit; reconciliation invokes the actual worker handler and includes database effects, excluding queue wait. Fixture generation is excluded.
+Run `npm run benchmark -- 1000 10000 100000`. Raw results: [historical benchmark-results.json](../artifacts/baseline/historical.json). Each row below is the final recorded observation for that size, not a statistical estimate. Imports include both CSVs, parsing, row evidence, records and commit; reconciliation invokes the actual worker handler and includes database effects, excluding queue wait. Fixture generation is excluded.
 
 | Invoices | Payments | Import seconds | Import rows/s | Reconcile seconds | Payments/s | Auto allocations | Review cases | Peak RSS MiB import / reconcile |
 |---:|---:|---:|---:|---:|---:|---:|---:|---:|

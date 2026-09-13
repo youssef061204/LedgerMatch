@@ -1,0 +1,44 @@
+{
+  "setup": {
+    "timestamp": "2026-09-13T19:01:02.112Z",
+    "node": "v24.13.0",
+    "os": "Windows_NT 10.0.26200 x64",
+    "cpu": "Intel(R) Core(TM) i7-14700HX",
+    "logicalCpus": 28,
+    "hostMemoryGiB": 16,
+    "database": "PostgreSQL 17.11 on x86_64-pc-linux-musl, compiled by gcc (Alpine 15.2.0) 15.2.0, 64-bit",
+    "ruleVersion": "1.0.0",
+    "seed": 42,
+    "execution": "Local Node process; PostgreSQL 17 Docker container on same Windows host; same processRun handler used by the worker, excluding queue wait.",
+    "memoryMethod": "RSS sampled every 25ms in the benchmark Node process; includes fixtures, CSV strings, runtime and prior allocations. Excludes PostgreSQL and Docker. Sampling can miss short peaks; no forced GC. Not isolated incremental allocation memory."
+  },
+  "recallDefinition": "Correct automatic allocations / independently authored unambiguous automation-eligible payment/invoice pairs. Deliberately ambiguous, duplicate, mismatch and overpayment cases are excluded. Precision is correct allocations / all automatic allocations.",
+  "observations": "One observation per size; no latency percentiles or improvement claims.",
+  "results": [
+    {
+      "invoices": 100000,
+      "payments": 100000,
+      "workspaceId": "f77f179a-547a-4e16-b600-7aa5955ce6aa",
+      "import": {
+        "durationMs": 10238.6,
+        "rowsPerSecond": 19534,
+        "baselineRssMiB": 288,
+        "peakRssMiB": 465
+      },
+      "reconciliation": {
+        "durationMs": 55688.66,
+        "paymentsPerSecond": 1796,
+        "baselineRssMiB": 465,
+        "peakRssMiB": 479
+      },
+      "automaticAllocations": 69999,
+      "correctAutomaticAllocations": 69999,
+      "eligibleGroundTruthPairs": 69999,
+      "precision": 1,
+      "eligibleRecall": 1,
+      "intentionallyRoutedToReview": 30001,
+      "actualUnallocatedPayments": 30001,
+      "accountingInvariants": "passed"
+    }
+  ]
+}

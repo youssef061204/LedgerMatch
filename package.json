@@ -19,7 +19,14 @@
     "test:integration": "vitest run tests/integration",
     "test:e2e": "playwright test",
     "benchmark": "tsx --env-file=.env scripts/benchmark.ts",
-    "fixtures": "tsx --env-file=.env scripts/fixtures.ts"
+    "fixtures": "tsx --env-file=.env scripts/fixtures.ts",
+    "ml:data": "tsx scripts/ml-data.ts",
+    "ml:train": "tsx scripts/ml-train.ts",
+    "ml:evaluate": "tsx scripts/ml-evaluate.ts",
+    "ml:report": "tsx scripts/ml-report.ts",
+    "ml:verify": "tsx scripts/ml-verify.ts",
+    "benchmark:compare": "tsx --env-file=.env scripts/performance.ts",
+    "profile": "tsx --env-file=.env scripts/profile.ts"
   },
   "dependencies": {
     "csv-parse": "^7.0.2",

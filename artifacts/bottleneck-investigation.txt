@@ -1,13 +1,13 @@
-Measured 2026-09-11T15:07:06.373Z
-Pure matching 1000 invoices + 1000 payments: 8.08 ms (one observation).
+Measured 2026-09-13T19:02:39.138Z
+Pure matching 1000 invoices + 1000 payments: 5.99 ms (one observation).
 PostgreSQL 100-allocation batch below is rolled back and excludes audit/progress writes. Not a before/after comparison.
-Insert on allocations  (cost=0.00..1.25 rows=0 width=0) (actual time=12.211..12.211 rows=0 loops=1)
-  Buffers: shared hit=3215 read=36 dirtied=42 written=6
-  ->  Function Scan on jsonb_to_recordset x  (cost=0.00..1.25 rows=100 width=296) (actual time=0.219..0.304 rows=100 loops=1)
-Planning Time: 0.052 ms
-Trigger for constraint allocations_workspace_id_fkey: time=0.938 calls=100
-Trigger for constraint allocations_workspace_id_payment_id_fkey: time=1.901 calls=100
-Trigger for constraint allocations_workspace_id_invoice_id_fkey: time=2.089 calls=100
-Trigger for constraint allocations_workspace_id_run_id_fkey: time=0.121 calls=100
-Trigger allocation_guard: time=9.256 calls=100
-Execution Time: 17.339 ms
+Insert on allocations  (cost=0.00..1.25 rows=0 width=0) (actual time=10.266..10.266 rows=0 loops=1)
+  Buffers: shared hit=3227 read=124 dirtied=109 written=4
+  ->  Function Scan on jsonb_to_recordset x  (cost=0.00..1.25 rows=100 width=296) (actual time=0.158..0.224 rows=100 loops=1)
+Planning Time: 0.038 ms
+Trigger for constraint allocations_workspace_id_fkey: time=0.840 calls=100
+Trigger for constraint allocations_workspace_id_payment_id_fkey: time=1.425 calls=100
+Trigger for constraint allocations_workspace_id_invoice_id_fkey: time=1.530 calls=100
+Trigger for constraint allocations_workspace_id_run_id_fkey: time=0.093 calls=100
+Trigger allocation_guard: time=7.467 calls=100
+Execution Time: 14.215 ms

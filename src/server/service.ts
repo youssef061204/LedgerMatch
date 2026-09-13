@@ -7,6 +7,9 @@ import { formatMoney } from '../domain/money';
 import { generateFixture } from '../domain/fixtures';
 import { reconcile, RULE_VERSION, type Invoice, type Payment } from '../domain/matching';
 import { getBoss, QUEUE } from './queue';
+import { performance } from 'node:perf_hooks';
+import { loadRanker } from './ml';
+import { rankCandidates } from '../ml/model';
 
 export type Context={workspaceId:string;principalId:string};
 export class AppError extends Error { constructor(message:string,public status=400,public errors?:unknown){super(message);} }
@@ -84,7 +87,7 @@ export async function seedWorkspace(ctx:Context,reset=false,size=240) {
   return {invoices,payments};
 }
 const invoiceSelect='SELECT id,customer_id AS "customerId",invoice_date AS "invoiceDate",due_date AS "dueDate",amount,currency,paid,outstanding,status FROM invoice_balances';
-const paymentSelect=`SELECT p.id,p.customer_id AS "customerId",p.payment_date AS "paymentDate",p.amount,p.currency,p.reference,CASE WHEN a.id IS NOT NULL THEN 'allocated' ELSE p.review_status END AS status,p.review_status AS "reviewStatus",coalesce(a.explanation,p.explanation) AS explanation,p.candidates,CASE WHEN a.id IS NULL THEN NULL ELSE jsonb_build_object('id',a.id,'invoiceId',a.invoice_id,'amount',a.amount,'explanation',a.explanation) END AS allocation FROM payments p LEFT JOIN allocations a ON a.workspace_id=p.workspace_id AND a.payment_id=p.id AND a.reversed_at IS NULL`;
+const paymentSelect=`SELECT p.id,p.customer_id AS "customerId",p.payment_date AS "paymentDate",p.amount,p.currency,p.reference,CASE WHEN a.id IS NOT NULL THEN 'allocated' ELSE p.review_status END AS status,p.review_status AS "reviewStatus",coalesce(a.explanation,p.explanation) AS explanation,p.candidates,p.recommendation,CASE WHEN a.id IS NULL THEN NULL ELSE jsonb_build_object('id',a.id,'invoiceId',a.invoice_id,'amount',a.amount,'explanation',a.explanation) END AS allocation FROM payments p LEFT JOIN allocations a ON a.workspace_id=p.workspace_id AND a.payment_id=p.id AND a.reversed_at IS NULL`;
 const auditSelect=`SELECT e.id,coalesce(p.name,'Reconciliation worker') AS actor,e.action,e.entity_id AS "entityId",e.explanation,e.changes,e.created_at AS "createdAt" FROM audit_events e LEFT JOIN principals p ON p.id::text=e.actor`;
 export async function getState(ctx:Context,options:{view?:string;page?:number;search?:string;status?:string}={}) {
   const member=await requireMember(ctx);
@@ -114,6 +117,14 @@ export async function getPayment(ctx:Context,id:string,search='') {
   await requireMember(ctx);
   const payment=(await pool.query(`${paymentSelect} WHERE p.workspace_id=$1 AND p.id=$2`,[ctx.workspaceId,id])).rows[0];
   if(!payment) throw new AppError('Payment not found in your workspace.',404);
+  // Suggestions describe the last run. Hide candidates whose balances have since been consumed.
+  if(payment.candidates.length) {
+    const compatible=(await pool.query(`${invoiceSelect} WHERE workspace_id=$1 AND id=ANY($2::text[]) AND currency=$3 AND outstanding >= $4 AND ($5::text IS NULL OR customer_id=$5)`,[ctx.workspaceId,payment.candidates.map((c:{invoiceId:string})=>c.invoiceId),payment.currency,payment.amount,payment.customerId])).rows;
+    const ids=new Set(compatible.map(i=>i.id));
+    const fresh=payment.candidates.filter((c:{invoiceId:string})=>ids.has(c.invoiceId));
+    if(fresh.length!==payment.candidates.length&&payment.recommendation) payment.recommendation={...payment.recommendation,state:'abstained',invoiceId:null,confidence:0,reason:'Candidate balances changed after ranking. Run reconciliation again or review independently.'};
+    payment.candidates=fresh;
+  }
   const invoices=(await pool.query(`${invoiceSelect} WHERE workspace_id=$1 AND currency=$2 AND outstanding >= $3 AND ($4::text IS NULL OR customer_id=$4) AND (id ILIKE $5 OR customer_id ILIKE $5) ORDER BY id LIMIT 100`,[ctx.workspaceId,payment.currency,payment.amount,payment.customerId,`%${search.replace(/[\\%_]/g,'\\$&')}%`])).rows;
   const events=(await pool.query(`${auditSelect} WHERE e.workspace_id=$1 AND (e.entity_id=$2 OR e.changes->>'paymentId'=$2) ORDER BY e.created_at DESC LIMIT 100`,[ctx.workspaceId,id])).rows;
   return {payment,candidates:payment.candidates,invoices,audit:events};
@@ -130,7 +141,7 @@ export async function allocate(ctx:Context,paymentId:string,invoiceId:string,not
     if(p.currency!==i.currency||(p.customer_id&&p.customer_id!==i.customer_id)||p.amount>i.outstanding) throw new AppError('Invoice must have matching customer and currency, and enough outstanding balance.',409);
     const id=randomUUID();
     await c.query("INSERT INTO allocations(id,workspace_id,payment_id,invoice_id,amount,source,explanation,evidence) VALUES($1,$2,$3,$4,$5,'manual',$6,$7)",[id,ctx.workspaceId,paymentId,invoiceId,p.amount,note,JSON.stringify({outstandingBefore:i.outstanding,outstandingAfter:i.outstanding-p.amount})]);
-    await c.query("UPDATE payments SET review_status='allocated',explanation=$3,candidates='[]' WHERE workspace_id=$1 AND id=$2",[ctx.workspaceId,paymentId,note]);
+    await c.query("UPDATE payments SET review_status='allocated',explanation=$3,candidates='[]',recommendation=NULL WHERE workspace_id=$1 AND id=$2",[ctx.workspaceId,paymentId,note]);
     await c.query("INSERT INTO decisions(id,workspace_id,principal_id,payment_id,allocation_id,action,note) VALUES($1,$2,$3,$4,$5,'allocated',$6)",[randomUUID(),ctx.workspaceId,ctx.principalId,paymentId,id,note]);
     await audit(c,ctx,'payment_allocated',paymentId,note,{paymentId,invoiceId,allocationId:id,amount:p.amount,outstandingBefore:i.outstanding,outstandingAfter:i.outstanding-p.amount});
     return {id};
@@ -143,7 +154,7 @@ export async function reverse(ctx:Context,paymentId:string,note:string) {
     const a=(await c.query('SELECT * FROM allocations WHERE workspace_id=$1 AND payment_id=$2 AND reversed_at IS NULL',[ctx.workspaceId,paymentId])).rows[0];
     if(!a) throw new AppError('No active allocation found in your workspace.',404);
     await c.query('UPDATE allocations SET reversed_at=now(),reversal_note=$2 WHERE id=$1',[a.id,note]);
-    await c.query("UPDATE payments SET review_status='reversed',explanation=$3,candidates='[]' WHERE workspace_id=$1 AND id=$2",[ctx.workspaceId,paymentId,note]);
+    await c.query("UPDATE payments SET review_status='reversed',explanation=$3,candidates='[]',recommendation=NULL WHERE workspace_id=$1 AND id=$2",[ctx.workspaceId,paymentId,note]);
     await c.query("INSERT INTO decisions(id,workspace_id,principal_id,payment_id,allocation_id,action,note) VALUES($1,$2,$3,$4,$5,'reversed',$6)",[randomUUID(),ctx.workspaceId,ctx.principalId,paymentId,a.id,note]);
     await audit(c,ctx,'allocation_reversed',paymentId,note,{paymentId,invoiceId:a.invoice_id,allocationId:a.id,restoredOutstanding:a.amount});return {id:a.id};
   });
@@ -153,7 +164,7 @@ export async function deferPayment(ctx:Context,paymentId:string,note:string) {
   await transaction(async c=>{
     await lockWorkspace(c,ctx,true);
     if((await c.query('SELECT id FROM allocations WHERE workspace_id=$1 AND payment_id=$2 AND reversed_at IS NULL',[ctx.workspaceId,paymentId])).rowCount) throw new AppError('Reverse the allocation before leaving this payment unresolved.',409);
-    if(!(await c.query("UPDATE payments SET review_status='deferred',explanation=$3 WHERE workspace_id=$1 AND id=$2 RETURNING id",[ctx.workspaceId,paymentId,note])).rowCount) throw new AppError('Payment not found.',404);
+    if(!(await c.query("UPDATE payments SET review_status='deferred',explanation=$3,recommendation=NULL WHERE workspace_id=$1 AND id=$2 RETURNING id",[ctx.workspaceId,paymentId,note])).rowCount) throw new AppError('Payment not found.',404);
     await c.query("INSERT INTO decisions(id,workspace_id,principal_id,payment_id,action,note) VALUES($1,$2,$3,$4,'deferred',$5)",[randomUUID(),ctx.workspaceId,ctx.principalId,paymentId,note]);
     await audit(c,ctx,'payment_deferred',paymentId,note);
   });return {ok:true};
@@ -175,7 +186,11 @@ export async function queueRun(ctx:Context) {
     await audit(c,ctx,'reconciliation_queued',id,'Queued reconciliation.',{jobId,ruleVersion:RULE_VERSION});return {id,status:'queued'};
   });
 }
-export async function processRun(runId:string,options:{failAfter?:number}={}) {
+export interface RunTimings { snapshotMs:number; computeMs:number; mlMs:number; persistenceMs:number; batchMs:number[]; modelId:string|null; automaticAllocations:number; reviews:number; }
+export async function processRun(runId:string,options:{failAfter?:number;batchSize?:number;mlEnabled?:boolean;onTimings?:(metrics:RunTimings)=>void}={}) {
+  const limit=options.batchSize??1000;
+  if(!Number.isInteger(limit)||limit<1||limit>1000) throw new Error('Batch size must be between 1 and 1000.');
+  const timings:RunTimings={snapshotMs:0,computeMs:0,mlMs:0,persistenceMs:0,batchMs:[],modelId:null,automaticAllocations:0,reviews:0};
   const lease=await pool.connect();let locked=false;let ctx:Context|undefined;
   try {
     const run=(await lease.query('SELECT * FROM runs WHERE id=$1',[runId])).rows[0];
@@ -188,17 +203,37 @@ export async function processRun(runId:string,options:{failAfter?:number}={}) {
       return (await c.query("UPDATE runs SET status='running',attempts=attempts+1,error=NULL,updated_at=now() WHERE id=$1 AND status IN ('queued','running') RETURNING id",[runId])).rowCount;
     });
     if(!claimed) return;
+    const snapshotStart=performance.now();
     const invoices=(await lease.query(`${invoiceSelect} WHERE workspace_id=$1`,[ctx.workspaceId])).rows as Invoice[];
     const payments=(await lease.query('SELECT id,customer_id AS "customerId",payment_date AS "paymentDate",amount,currency,reference,review_status AS "reviewStatus" FROM payments WHERE workspace_id=$1',[ctx.workspaceId])).rows as Payment[];
     const active=new Set<string>((await lease.query('SELECT payment_id FROM allocations WHERE workspace_id=$1 AND reversed_at IS NULL',[ctx.workspaceId])).rows.map(r=>r.payment_id));
-    const result=reconcile(invoices,payments,active);
+    timings.snapshotMs=performance.now()-snapshotStart;
+    const modelStart=performance.now();
+    const model=await loadRanker(options.mlEnabled);
+    timings.mlMs=performance.now()-modelStart;timings.modelId=model?.modelId??null;
+    const computeStart=performance.now();
+    const result=reconcile(invoices,payments,active,{candidateLimit:model?20:5});
+    timings.computeMs=performance.now()-computeStart;
+    if(model) {
+      const mlStart=performance.now();
+      const finalInvoices=new Map(invoices.map(i=>[i.id,{...i}]));
+      for(const allocation of result.allocations) finalInvoices.get(allocation.invoiceId)!.paid+=allocation.amount;
+      const paymentById=new Map(payments.map(p=>[p.id,p]));
+      for(const review of result.reviews) {
+        const compatible=review.candidates.map(c=>finalInvoices.get(c.invoiceId)!);
+        Object.assign(review,rankCandidates(model,paymentById.get(review.paymentId)!,compatible,review.candidates,review.status));
+      }
+      timings.mlMs+=performance.now()-mlStart;
+    }
+    timings.automaticAllocations=result.allocations.length;timings.reviews=result.reviews.length;
     let processed=active.size,committed=0;
     await lease.query('UPDATE runs SET processed=$2,total=$3 WHERE id=$1',[runId,processed,payments.length]);
     const effects=[...result.allocations.map(a=>({kind:'allocation' as const,value:a})),...result.reviews.map(r=>({kind:'review' as const,value:r}))];
     for(let offset=0;offset<effects.length;) {
-      const batchSize=Math.min(100,options.failAfter?options.failAfter-committed:100);
+      const batchSize=Math.min(limit,options.failAfter?options.failAfter-committed:limit);
       if(batchSize<=0) throw new Error('Injected worker interruption after committed batch.');
       const batch=effects.slice(offset,offset+batchSize);
+      const batchStart=performance.now();
       await transaction(async c=>{
         await lockWorkspace(c,ctx!);
         await fenceRun(c,runId);
@@ -206,13 +241,14 @@ export async function processRun(runId:string,options:{failAfter?:number}={}) {
         if(allocations.length) {
           await c.query(`INSERT INTO allocations(id,workspace_id,payment_id,invoice_id,amount,source,rule_version,explanation,evidence,run_id) SELECT x.id,$1,x."paymentId",x."invoiceId",x.amount,'automatic',$2,x.explanation,x.evidence,$3 FROM jsonb_to_recordset($4::jsonb) AS x(id uuid,"paymentId" text,"invoiceId" text,amount bigint,explanation text,evidence jsonb)`,[ctx!.workspaceId,RULE_VERSION,runId,JSON.stringify(allocations)]);
           await c.query(`INSERT INTO audit_events(id,workspace_id,actor,action,entity_id,explanation,changes) SELECT gen_random_uuid(),$1,'worker','automatic_allocation',x."paymentId",x.explanation,to_jsonb(x) FROM jsonb_to_recordset($2::jsonb) AS x(id uuid,"paymentId" text,"invoiceId" text,amount bigint,explanation text,evidence jsonb)`,[ctx!.workspaceId,JSON.stringify(allocations)]);
-          await c.query("UPDATE payments SET review_status='allocated',candidates='[]' WHERE workspace_id=$1 AND id=ANY($2::text[])",[ctx!.workspaceId,allocations.map(a=>a.paymentId)]);
+          await c.query("UPDATE payments SET review_status='allocated',candidates='[]',recommendation=NULL WHERE workspace_id=$1 AND id=ANY($2::text[])",[ctx!.workspaceId,allocations.map(a=>a.paymentId)]);
         }
         const reviews=batch.filter(e=>e.kind==='review').map(e=>e.value);
-        if(reviews.length) await c.query(`UPDATE payments p SET review_status=x.status,explanation=CASE WHEN p.review_status IN ('reversed','deferred') THEN p.explanation ELSE x.explanation END,candidates=x.candidates FROM jsonb_to_recordset($2::jsonb) AS x("paymentId" text,status text,explanation text,candidates jsonb) WHERE p.workspace_id=$1 AND p.id=x."paymentId"`,[ctx!.workspaceId,JSON.stringify(reviews)]);
+        if(reviews.length) await c.query(`UPDATE payments p SET review_status=x.status,explanation=CASE WHEN p.review_status IN ('reversed','deferred') THEN p.explanation ELSE x.explanation END,candidates=x.candidates,recommendation=x.recommendation FROM jsonb_to_recordset($2::jsonb) AS x("paymentId" text,status text,explanation text,candidates jsonb,recommendation jsonb) WHERE p.workspace_id=$1 AND p.id=x."paymentId"`,[ctx!.workspaceId,JSON.stringify(reviews)]);
         processed+=batch.length;
         await c.query('UPDATE runs SET processed=$2,updated_at=now() WHERE id=$1',[runId,processed]);
       });
+      timings.batchMs.push(performance.now()-batchStart);
       committed+=batch.length;offset+=batch.length;
       if(process.env.QUIET_PROGRESS!=='true') console.log(JSON.stringify({event:'reconciliation_progress',workspaceId:ctx.workspaceId,runId,jobId:run.job_id,processed,total:payments.length}));
       if(options.failAfter&&committed>=options.failAfter) throw new Error('Injected worker interruption after committed batch.');
@@ -223,6 +259,8 @@ export async function processRun(runId:string,options:{failAfter?:number}={}) {
       await c.query("UPDATE runs SET status='completed',processed=total,error=NULL,updated_at=now() WHERE id=$1",[runId]);
       await audit(c,ctx!,'reconciliation_completed',runId,`Reviewed ${payments.length} payments; ${result.allocations.length} new automatic allocations.`,{ruleVersion:RULE_VERSION,automaticAllocations:result.allocations.length,reviewCount:result.reviews.length});
     });
+    timings.persistenceMs=timings.batchMs.reduce((a,b)=>a+b,0);
+    options.onTimings?.(timings);
   } catch(error) {
     if(locked) await lease.query("UPDATE runs SET status='queued',error=$2,updated_at=now() WHERE id=$1 AND status='running'",[runId,error instanceof Error?error.message:'Worker failed.']);
     throw error;

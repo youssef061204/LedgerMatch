@@ -1,6 +1,6 @@
 {
   "setup": {
-    "timestamp": "2026-09-13T19:29:00.496Z",
+    "timestamp": "2026-09-11T15:07:07.409Z",
     "node": "v24.13.0",
     "os": "Windows_NT 10.0.26200 x64",
     "cpu": "Intel(R) Core(TM) i7-14700HX",
@@ -18,18 +18,18 @@
     {
       "invoices": 1000,
       "payments": 1000,
-      "workspaceId": "63a58e8b-ec78-4ed4-b214-53a71a136619",
+      "workspaceId": "a93849b9-186f-4a2e-a301-55bbe220dd93",
       "import": {
-        "durationMs": 140.04,
-        "rowsPerSecond": 14282,
-        "baselineRssMiB": 130,
-        "peakRssMiB": 132
+        "durationMs": 140.34,
+        "rowsPerSecond": 14251,
+        "baselineRssMiB": 142,
+        "peakRssMiB": 142
       },
       "reconciliation": {
-        "durationMs": 197.79,
-        "paymentsPerSecond": 5056,
-        "baselineRssMiB": 132,
-        "peakRssMiB": 148
+        "durationMs": 290.35,
+        "paymentsPerSecond": 3444,
+        "baselineRssMiB": 134,
+        "peakRssMiB": 136
       },
       "automaticAllocations": 699,
       "correctAutomaticAllocations": 699,
@@ -43,18 +43,18 @@
     {
       "invoices": 10000,
       "payments": 10000,
-      "workspaceId": "2dae3a87-5fa3-41e8-80d0-275ce083304a",
+      "workspaceId": "fc060602-8f50-4364-bcbb-944a09188ede",
       "import": {
-        "durationMs": 1136.26,
-        "rowsPerSecond": 17602,
-        "baselineRssMiB": 188,
-        "peakRssMiB": 242
+        "durationMs": 947.08,
+        "rowsPerSecond": 21118,
+        "baselineRssMiB": 168,
+        "peakRssMiB": 221
       },
       "reconciliation": {
-        "durationMs": 1436.65,
-        "paymentsPerSecond": 6961,
-        "baselineRssMiB": 232,
-        "peakRssMiB": 278
+        "durationMs": 3039.99,
+        "paymentsPerSecond": 3289,
+        "baselineRssMiB": 221,
+        "peakRssMiB": 265
       },
       "automaticAllocations": 6999,
       "correctAutomaticAllocations": 6999,
@@ -68,18 +68,18 @@
     {
       "invoices": 100000,
       "payments": 100000,
-      "workspaceId": "f4079bc4-5036-4ed3-b6e4-b58b488a7e02",
+      "workspaceId": "62624934-8049-4b31-8ceb-9ee7b1872f55",
       "import": {
-        "durationMs": 11231.02,
-        "rowsPerSecond": 17808,
-        "baselineRssMiB": 359,
-        "peakRssMiB": 439
+        "durationMs": 9512.15,
+        "rowsPerSecond": 21026,
+        "baselineRssMiB": 314,
+        "peakRssMiB": 482
       },
       "reconciliation": {
-        "durationMs": 17769.05,
-        "paymentsPerSecond": 5628,
-        "baselineRssMiB": 427,
-        "peakRssMiB": 662
+        "durationMs": 60834.38,
+        "paymentsPerSecond": 1644,
+        "baselineRssMiB": 372,
+        "peakRssMiB": 518
       },
       "automaticAllocations": 69999,
       "correctAutomaticAllocations": 69999,

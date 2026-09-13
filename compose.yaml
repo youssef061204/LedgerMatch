@@ -21,6 +21,8 @@ services:
       SESSION_PASSWORD: ${SESSION_PASSWORD:?Set SESSION_PASSWORD in .env}
       APP_ORIGIN: ${APP_ORIGIN:-http://127.0.0.1:3000}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      ML_ENABLED: ${ML_ENABLED:-true}
+      ML_MODEL_FILE: ${ML_MODEL_FILE:-ranker.json}
     depends_on:
       db: {condition: service_healthy}
   app:

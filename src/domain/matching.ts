@@ -28,6 +28,7 @@ export interface Candidate {
   /** A heuristic ranking, never a probability. */
   score: number;
   reasons: string[];
+  mlScore?: number;
 }
 
 export interface AllocationProposal {
@@ -54,6 +55,7 @@ export interface ReviewProposal {
   status: string;
   explanation: string;
   candidates: Candidate[];
+  recommendation?: import('../ml/model').Recommendation;
 }
 
 export interface ReconciliationResult {
@@ -107,7 +109,10 @@ export function reconcile(
   invoices: Invoice[],
   payments: Payment[],
   allocatedPaymentIds: Set<string> = new Set(),
+  options: { candidateLimit?: number } = {},
 ): ReconciliationResult {
+  const candidateLimit = options.candidateLimit ?? 5;
+  if (!Number.isInteger(candidateLimit) || candidateLimit < 1 || candidateLimit > 20) throw new Error('Candidate limit must be between 1 and 20.');
   const invoiceIndex = new Map<string, Invoice[]>();
   const invoiceById = new Map<string, Invoice>();
   const outstanding = new Map<string, number>();
@@ -190,7 +195,7 @@ export function reconcile(
       }
       candidates.push({ invoiceId: invoice.id, score, reasons });
     }
-    return candidates.sort((a, b) => b.score - a.score || compare(a.invoiceId, b.invoiceId)).slice(0, 5);
+    return candidates.sort((a, b) => b.score - a.score || compare(a.invoiceId, b.invoiceId)).slice(0, candidateLimit);
   }
 
   const allocations: AllocationProposal[] = [];

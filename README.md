@@ -2,6 +2,10 @@
 
 A transaction reconciliation and exception-review application built with Next.js, TypeScript and PostgreSQL. Import invoices and payments, run explainable matching, review exceptions, reverse decisions, and export the results.
 
+Now includes a trained **XGBoost invoice ranker**, shared TypeScript training/inference features, calibrated human-review recommendations, leakage-safe synthetic experiments and an interactive [model evaluation dashboard](http://127.0.0.1:3000/evaluation). The checked-in model runs directly in Node; Python is needed only to retrain. Set `ML_ENABLED=false` to use the original heuristic workflow.
+
+See [generated benchmark results](docs/benchmark-results.md), [measured XYZ resume bullets](docs/resume-metrics.md), and [ML methodology and reproduction commands](docs/ml-matching.md). All metrics come from executable experiments; predictive results use held-out synthetic data and reviewer productivity is labeled as a proxy.
+
 **Synthetic portfolio demo only. No bank connections or money movement.**
 
 ![LedgerMatch dashboard using synthetic data](docs/images/dashboard.png)
@@ -47,6 +51,7 @@ Stop host app/worker processes first to release port 3000. Compose builds the ap
 - Durable pg-boss jobs, progress, retries, worker fencing and recovery; PostgreSQL constraints and transactions protect financial effects.
 - Isolated expiring demo sessions; reviewer/viewer membership checked on the server; same-origin mutation protection.
 - Ranked suggestions, compatible invoice search, reviewer notes, reversal, retained evidence, paginated results, accounting totals and safe CSV exports.
+- ML ranks compatible exception candidates after deterministic matching; calibrated confidence can recommend or abstain, and every model-assisted allocation requires human confirmation.
 - Reset opens a freshly seeded workspace and preserves the previous workspace's historical evidence.
 
 ## Verification and fixtures
