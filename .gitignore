@@ -1,6 +1,7 @@
 node_modules/
 .next/
 .env
+.env.local
 .env.*.local
 *.tsbuildinfo
 test-results/
@@ -10,3 +11,5 @@ artifacts/screenshots/
 __pycache__/
 *.pyc
 !.env.example
+
+.vercel
